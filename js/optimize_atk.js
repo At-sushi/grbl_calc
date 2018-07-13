@@ -90,30 +90,6 @@ export class GrblFormGAOptimizer {
     // フレンド召喚配列を辞書に変換する
     this.friend_obj = arytoobj(this.friend_list);
 
-    // 染色体用のリストを作る関数
-    let objtoref = (obj) => {
-      let ref_list = [];
-      for (let i of Object.keys(obj)) {
-        for (let j = 0; j < obj[i].max; j++) {
-          ref_list.push(i);
-        }
-      }
-      return ref_list;
-    };
-
-    // 染色体の参照リストを作る
-    this.ref = {
-      weapon: objtoref(this.weapon_obj),
-      summon: objtoref(this.summon_obj),
-      friend: objtoref(this.friend_obj)
-    };
-
-    // 染色体の最大長を設定する
-    // TODO: ハードコーディングなのでもっとマシにする
-    this.weapon_max_chromo_length = this.ref.weapon.length > 10 ? 10 : this.ref.weapon.length;
-    this.summon_max_chromo_length = this.ref.summon.length > 5 ? 5 : this.ref.summon.length;
-    this.friend_max_chromo_length = this.ref.friend.length > 1 ? 1 : this.ref.friend.length;
-
     // 状態変数を初期状態に
     this.state.status = CALC_STATE.PARAM_INITED;
 
@@ -493,7 +469,7 @@ export class GrblFormGAOptimizer {
       yield this.state;
 
       // ループエンド
-      // トップの価値をメッセージにする
+      // トップの価値をメッセージにする.
       this.state.status = CALC_STATE.LOOP_END;
       this.state.message = "CURRENT TOP: " + String(this.state.ga_state.population[0].value);
       yield this.state;

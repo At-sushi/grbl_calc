@@ -6,6 +6,7 @@
 import React, { Component } from "react";
 import CSSModules from "react-css-modules";
 import { connect } from "react-redux";
+import JOB_DATA from "./const/job_data.js";
 
 import {
   enable_weapon_object,
@@ -20,6 +21,12 @@ import {
   input_lock,
   input_unlock
 } from "./actions.js";
+
+import {
+    calculate_atkval,
+    is_valid_weapon_obj,
+    is_valid_summon_obj
+} from "./atk_calc";
 
 import { WORKER_STATE, WORKER_COMMAND } from "./const/worker_type.js";
 import { WEAPON_CHECKED_MAX, SUMMON_CHECKED_MAX, FRIEND_CHECKED_MAX } from "./const/number_const.js";
@@ -114,31 +121,103 @@ class Optimizer extends Component {
   optimizer_func() {
     this.props.input_lock();
     this.setState({ running : true });
-    this.optimize_worker.postMessage({
-      command: WORKER_COMMAND.SET_BASIC_INFO,
-      data: this.props.basicinfo
+    let dp = [[[], [], []]];
+
+//      data: this.props.basicinfo  atkvalにぶん投げる基礎情報
+    // 一度選択状態を解除する
+    this.props.weapon.forEach((v, i) => {
+      this.props.disable_weapon_object(i);
     });
-    this.optimize_worker.postMessage({
-      command: WORKER_COMMAND.SET_WEAPON,
-      data: this.props.weapon
+    this.props.summon.forEach((v, i) => {
+      this.props.disable_summon_object(i);
     });
-    this.optimize_worker.postMessage({
-      command: WORKER_COMMAND.SET_SUMMON,
-      data: this.props.summon
+    this.props.friend.forEach((v, i) => {
+      this.props.disable_friend_object(i);
     });
-    this.optimize_worker.postMessage({
-      command: WORKER_COMMAND.SET_FRIEND,
-      data: this.props.friend
+
+    // DP
+
+/*    // 武器配列を辞書に変換する
+    this.weapon_obj = arytoobj(this.props.weapon);
+    // 召喚配列を辞書に変換する
+    this.summon_obj = arytoobj(this.props.summon);
+    // フレンド召喚配列を辞書に変換する
+    this.friend_obj = arytoobj(this.props.friend);
+*/
+    this.props.weapon.forEach((v, i) => {
+      this.props.enable_weapon_object(i);
+
+     // 最終的な算出に使うパラメータを生成する
+      // TODO: ハードコーディングしてるのをどうにかする
+      // sliceは添字の*直前*まで取りだす
+      let final_param = Object.assign({}, this.props.basicinfo, {
+        weapon: [v],
+        summon: [],
+        friend: []
+      });
+      let value = calculate_atkval(final_param, JOB_DATA);
+      value = value.total_atk - value.basic_atk;
+	let dp2 = dp.slice();
+      dp.forEach((b, a) => { if(b[0].length < 10 && b[0].slice(-1)[0] != i) { let b2 = b.slice(); b2[0] = b2[0].slice(); b2[0].push(i);
+                 if (dp2[a+value] === undefined || dp2[a+value][0].length > b2[0].length) dp2[a+value] = b2; } });
+        dp = dp2;
+      this.props.disable_weapon_object(i);
     });
-    this.optimize_worker.postMessage({
-      command: WORKER_COMMAND.SET_GA_PARAM,
-      data: {
-        generation: this.state.max_gen,
-        population: this.state.max_pop,
-        mutation_probability: { all: this.state.mut_prob }
-      }
+    this.props.summon.forEach((v, i) => {
+      this.props.enable_summon_object(i);
+
+      // 最終的な算出に使うパラメータを生成する
+      // TODO: ハードコーディングしてるのをどうにかする
+      // sliceは添字の*直前*まで取りだす
+      let final_param = Object.assign({}, this.props.basicinfo, {
+        weapon: [],
+        summon: [v],
+        friend: []
+      });
+      let value = calculate_atkval(final_param, JOB_DATA);
+      value = value.total_atk - value.basic_atk;
+	let dp2 = dp.slice();
+      dp.forEach((b, a) => { if(b[1].length < 5 && b[1].slice(-1)[0] != i) { let b2 = b.slice(); b2[1] = b2[1].slice(); b2[1].push(i);
+        if (dp2[a+value] === undefined || dp2[a+value][1].length >= b2[1].length)  dp2[a+value] = b2; } });
+        dp = dp2;
+      this.props.disable_summon_object(i);
     });
-    this.optimize_worker.postMessage({ command: WORKER_COMMAND.GET_STATE });
+    this.props.friend.forEach((v, i) => {
+      this.props.enable_friend_object(i);
+
+      // 最終的な算出に使うパラメータを生成する
+      // TODO: ハードコーディングしてるのをどうにかする
+      // sliceは添字の*直前*まで取りだす
+      let final_param = Object.assign({}, this.props.basicinfo, {
+        weapon: [],
+        summon: [],
+        friend: [v]
+      });
+      let value = calculate_atkval(final_param, JOB_DATA);
+      value = value.total_atk;
+	let dp2 = dp.slice();
+      dp.forEach((b, a) => { if(b[2].length < 1 && b[2].slice(-1)[0] != i) { let b2 = b.slice(); b2[2] = b2[2].slice(); b2[2].push(i);
+        /* if (dp2[a+value] === undefined || dp2[a+value][2].length >= b2[2].length) */  dp2[a+value] = b2; } });
+        dp = dp2;
+      this.props.disable_friend_object(i);
+    });
+
+    console.log(dp);
+    let best = dp.slice(-1)[0];
+    // 一番上から選択状態にする
+    best[0].forEach((v, i) => {
+      this.props.enable_weapon_object(v);
+    });
+    best[1].forEach((v, i) => {
+      this.props.enable_summon_object(v);
+    });
+    best[2].forEach((v, i) => {
+      this.props.enable_friend_object(v);
+    });
+
+    this.props.input_unlock();
+    this.setState({ gen_count: 0 });
+    this.setState({ running: false });
   }
 
   render() {
