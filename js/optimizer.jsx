@@ -57,6 +57,95 @@ class Optimizer extends Component {
     this.optimize_worker = undefined;
   }
 
+  pre_optimize() {
+    let dp = [[[], [], []]];
+
+//      data: this.props.basicinfo  atkvalにぶん投げる基礎情報
+    // 一度選択状態を解除する
+    this.props.weapon.forEach((v, i) => {
+      this.props.disable_weapon_object(i);
+    });
+    this.props.summon.forEach((v, i) => {
+      this.props.disable_summon_object(i);
+    });
+    this.props.friend.forEach((v, i) => {
+      this.props.disable_friend_object(i);
+    });
+
+    // DP
+
+    this.props.weapon.forEach((v, i) => {
+      this.props.enable_weapon_object(i);
+
+      // 最終的な算出に使うパラメータを生成する
+      // TODO: ハードコーディングしてるのをどうにかする
+      // sliceは添字の*直前*まで取りだす
+      let final_param = Object.assign({}, this.props.basicinfo, {
+        weapon: [v],
+        summon: [],
+        friend: []
+      });
+      let value = calculate_atkval(final_param, JOB_DATA);
+      value = value.total_atk - value.basic_atk;
+      let dp2 = dp.slice();
+      dp.forEach((b, a) => { if(b[0].length < 10 && b[0].slice(-1)[0] != i) { let b2 = b.slice(); b2[0] = b2[0].slice(); b2[0].push(i);
+        if (dp2[a+value] === undefined || dp2[a+value][0].length > b2[0].length) dp2[a+value] = b2; } });
+      dp = dp2;
+      this.props.disable_weapon_object(i);
+    });
+    this.props.summon.forEach((v, i) => {
+      this.props.enable_summon_object(i);
+
+      // 最終的な算出に使うパラメータを生成する
+      // TODO: ハードコーディングしてるのをどうにかする
+      // sliceは添字の*直前*まで取りだす
+      let final_param = Object.assign({}, this.props.basicinfo, {
+        weapon: [],
+        summon: [v],
+        friend: []
+      });
+      let value = calculate_atkval(final_param, JOB_DATA);
+      value = value.total_atk - value.basic_atk;
+      let dp2 = dp.slice();
+      dp.forEach((b, a) => { if(b[1].length < 5 && b[1].slice(-1)[0] != i) { let b2 = b.slice(); b2[1] = b2[1].slice(); b2[1].push(i);
+        if (dp2[a+value] === undefined || dp2[a+value][1].length >= b2[1].length)  dp2[a+value] = b2; } });
+      dp = dp2;
+      this.props.disan_object(i);
+    });
+    this.props.friend.forEach((v, i) => {
+      this.props.enable_friend_object(i);
+
+      // 最終的な算出に使うパラメータを生成する
+      // TODO: ハードコーディングしてるのをどうにかする
+      // sliceは添字の*直前*まで取りだす
+      let final_param = Object.assign({}, this.props.basicinfo, {
+        weapon: [],
+        summon: [],
+        friend: [v]
+      });
+      let value = calculate_atkval(final_param, JOB_DATA);
+      value = value.total_atk;
+      let dp2 = dp.slice();
+      dp.forEach((b, a) => { if(b[2].length < 1 && b[2].slice(-1)[0] != i) { let b2 = b.slice(); b2[2] = b2[2].slice(); b2[2].push(i);
+        dp2[a+value] = b2; } });
+      dp = dp2;
+      this.props.disable_friend_object(i);
+    });
+
+    console.log(dp);
+    let best = dp.slice(-1)[0];
+    // 一番上から選択状態にする
+    best[0].forEach((v, i) => {
+      this.props.enable_weapon_object(v);
+    });
+    best[1].forEach((v, i) => {
+      this.props.enable_summon_object(v);
+    });
+    best[2].forEach((v, i) => {
+      this.props.enable_friend_object(v);
+    });
+  }
+
   on_message(e) {
     console.info(e.data);
     if (e.data.state === WORKER_STATE.RUNNING) {
